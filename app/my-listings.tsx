@@ -35,34 +35,8 @@ import { db } from '../config/firebase';
 import { BG, BRAND, CARD, TEXT, TEXT_MUTED } from '../constants/Colors';
 import { useAuth } from '../hooks/useAuth';
 import Sidebar from '../components/Sidebar';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
-// ─── Cloudinary config (must match marketplace.tsx) ───────────────────────────
-const CLOUDINARY_CLOUD_NAME   = 'diogva6k1';
-const CLOUDINARY_UPLOAD_PRESET = 'myappeunesite';
-
-async function uploadToCloudinary(
-  imageUri: string,
-  onProgress?: (pct: number) => void
-): Promise<string> {
-  const formData = new FormData();
-  formData.append('file', { uri: imageUri, type: 'image/jpeg', name: `upload_${Date.now()}.jpg` } as any);
-  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-  formData.append('folder', 'marketplace');
-
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
-    };
-    xhr.onload = () => {
-      if (xhr.status === 200) resolve(JSON.parse(xhr.responseText).secure_url);
-      else reject(new Error(`Cloudinary error ${xhr.status}: ${xhr.responseText}`));
-    };
-    xhr.onerror = () => reject(new Error('Network error during image upload'));
-    xhr.send(formData);
-  });
-}
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 type ToastStatus = 'uploading' | 'success' | 'error' | 'deleting' | 'deleted';
@@ -177,7 +151,11 @@ export default function MyListingsScreen() {
       let imagePublicId = editItem.imagePublicId ?? null;
 
       if (editImageUri) {
-        imageUrl = await uploadToCloudinary(editImageUri, setEditProgress);
+        imageUrl = await uploadToCloudinary({
+  uri: editImageUri,
+  resourceType: 'image',
+  folder: 'marketplace',
+});
         // Extract public_id
         const parts = imageUrl.split('/');
         const fi = parts.indexOf('marketplace');

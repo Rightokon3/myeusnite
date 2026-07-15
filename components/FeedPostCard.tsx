@@ -26,32 +26,43 @@ interface Props {
 function FeedPostCard({ post, delay = 0 }: Props) {
   const { user, profile } = useAuth();
   const router = useRouter();
-  const [liked, setLiked] = useState(post.likes?.includes(user?.uid));
+ const [liked, setLiked] = useState(() =>
+  !!user?.uid && Array.isArray(post.likes) && post.likes.includes(user.uid)
+);
   const [likesCount, setLikesCount] = useState(post.likes?.length || 0);
 
-  const toggleLike = useCallback(async () => {
-    const postRef = doc(db, 'posts', post.id);
-    if (liked) {
-      await updateDoc(postRef, { likes: arrayRemove(user!.uid) });
-      setLikesCount((c: number) => c - 1);
-    } else {
-      await updateDoc(postRef, { likes: arrayUnion(user!.uid) });
-      setLikesCount((c: number) => c + 1);
-      if (post.authorId !== user!.uid) {
-        await addDoc(collection(db, 'notifications'), {
-          type: 'post_like',
-          recipientId: post.authorId,
-          senderId: user!.uid,
-          senderName: profile?.fullName ?? 'User',
-          message: `${profile?.fullName ?? 'User'} liked your post`,
-          postId: post.id,
-          createdAt: serverTimestamp(),
-          read: false,
-        });
-      }
+const toggleLike = useCallback(async () => {
+  if (!user?.uid) return;
+
+  const postRef = doc(db, 'posts', post.id);
+
+  if (liked) {
+    await updateDoc(postRef, {
+      likes: arrayRemove(user.uid),
+    });
+    setLikesCount((c: number) => c - 1);
+  } else {
+    await updateDoc(postRef, {
+      likes: arrayUnion(user.uid),
+    });
+    setLikesCount((c: number) => c + 1);
+
+    if (post.authorId !== user.uid) {
+      await addDoc(collection(db, 'notifications'), {
+        type: 'post_like',
+        recipientId: post.authorId,
+        senderId: user.uid,
+        senderName: profile?.fullName ?? 'User',
+        message: `${profile?.fullName ?? 'User'} liked your post`,
+        postId: post.id,
+        createdAt: serverTimestamp(),
+        read: false,
+      });
     }
-    setLiked((v: boolean) => !v);
-  }, [liked, post, user, profile]);
+  }
+
+  setLiked((v: boolean) => !v);
+}, [liked, post, user, profile]);
 
   return (
     <FadeInView delay={delay} style={{ backgroundColor: COLORS.white, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.md, ...SHADOW.card }}>
@@ -93,7 +104,9 @@ function FeedPostCard({ post, delay = 0 }: Props) {
 
       {/* Actions */}
       <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: COLORS.border, paddingTop: SPACING.sm, gap: 4 }}>
-        <TouchableOpacity onPress={toggleLike} style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44 }}>
+       <TouchableOpacity
+  onPress={toggleLike}
+  disabled={!user}style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44 }}>
           <Ionicons name={liked ? 'heart' : 'heart-outline'} size={19} color={liked ? COLORS.primaryRed : COLORS.textLight} />
           <Text style={{ fontSize: FONT_SIZE.caption, fontWeight: FONT_WEIGHT.semiBold, color: liked ? COLORS.primaryRed : COLORS.textLight }}>
             {likesCount} Like{likesCount === 1 ? '' : 's'}
