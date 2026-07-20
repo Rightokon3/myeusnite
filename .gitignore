@@ -6,6 +6,7 @@ node_modules/
 # Expo
 .expo/
 .env
+scripts/
 dist/
 web-build/
 expo-env.d.ts
